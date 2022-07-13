@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace Orleans.Runtime
 {
@@ -25,22 +26,31 @@ namespace Orleans.Runtime
                 return null;
             }
 
-            if (Synchronizers.TryGetValue((ad.GrainType, ad.GrainId.PrimaryKeyString), out var synchronizer))
+            Synchronizer synchronizer;
+
+            if (ad.GrainId.IsLongKey)
+            {
+                var primaryKeyLong = ad.GrainId.Key.HasKeyExt
+                    ? ad.GrainId.GetPrimaryKeyLong(out _)
+                    : ad.GrainId.PrimaryKeyLong;
+
+                return Synchronizers.TryGetValue((ad.GrainType, primaryKeyLong), out synchronizer)
+                    ? synchronizer
+                    : null;
+            }
+
+            if (Synchronizers.TryGetValue((ad.GrainType, ad.GrainId.PrimaryKeyString), out synchronizer))
             {
                 return synchronizer;
             }
 
-            if (Synchronizers.TryGetValue((ad.GrainType, ad.GrainId.PrimaryKeyLong), out synchronizer))
-            {
-                return synchronizer;
-            }
+            var primaryKeyGuid = ad.GrainId.Key.HasKeyExt
+                    ? ad.GrainId.GetPrimaryKey(out _)
+                    : ad.GrainId.PrimaryKey;
 
-            if (Synchronizers.TryGetValue((ad.GrainType, ad.GrainId.PrimaryKey), out synchronizer))
-            {
-                return synchronizer;
-            }
-
-            return null;
+            return Synchronizers.TryGetValue((ad.GrainType, primaryKeyGuid), out synchronizer)
+                ? synchronizer
+                : null;
         }
 
         #endregion
