@@ -649,19 +649,16 @@ namespace Orleans.Runtime
 
         internal async Task WaitForAllTimersToFinish()
         {
-            if (this.GrainType.Name == Synchronizer.Instance.GrainTypeName)
+            var synchronizer = Synchronizer.GetSynchronizer(this);
+
+            if (synchronizer is not null)
             {
-                while (!Synchronizer.Instance.State.HasFlag(Synchronizer.States.TimerCallback))
+                while (!synchronizer.State.HasFlag(Synchronizer.States.TimerCallback))
                 {
 
                 }
 
-                Synchronizer.Instance.State |= Synchronizer.States.ActivationDispose;
-
-                if (Synchronizer.Instance.Break.HasFlag(Synchronizer.States.ActivationDispose))
-                {
-                    Debugger.Break();
-                }
+                synchronizer.State |= Synchronizer.States.ActivationDispose;
             }
 
             var tasks = new List<Task>();

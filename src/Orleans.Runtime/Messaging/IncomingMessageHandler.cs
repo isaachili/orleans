@@ -89,16 +89,12 @@ namespace Orleans.Runtime.Messaging
                     lock (targetActivation)
                     {
                         var target = targetActivation; // to avoid a warning about nulling targetActivation under a lock on it
+                        var synchronizer = Synchronizer.GetSynchronizer(target);
 
-                        if (target.GrainType.Name == Synchronizer.Instance.GrainTypeName
-                            && Synchronizer.Instance.State.HasFlag(Synchronizer.States.ActivationDispose | Synchronizer.States.TimerCallback))
+                        if (synchronizer is not null
+                            && synchronizer.State.HasFlag(Synchronizer.States.ActivationDispose | Synchronizer.States.TimerCallback))
                         {
-                            Synchronizer.Instance.State |= Synchronizer.States.Reactivation;
-
-                            if (Synchronizer.Instance.Break.HasFlag(Synchronizer.States.Reactivation))
-                            {
-                                Debugger.Break();
-                            }
+                            synchronizer.State |= Synchronizer.States.Reactivation;
                         }
 
                         if (target.State == ActivationState.Valid)

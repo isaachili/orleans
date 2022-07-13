@@ -93,15 +93,12 @@ namespace Orleans.Runtime
             // AsyncSafeTimer ensures that calls to this method are serialized.
             if (TimerAlreadyStopped) return;
 
-            if (this.activationData is ActivationData ad
-                && ad.GrainType.Name == Synchronizer.Instance.GrainTypeName)
-            {
-                Synchronizer.Instance.State |= Synchronizer.States.TimerCallback;
+            var synchronizer = Synchronizer.GetSynchronizer(this.activationData);
+            var shouldSynchronize = synchronizer is not null && synchronizer.GrainTimer == this;
 
-                if (Synchronizer.Instance.Break.HasFlag(Synchronizer.States.TimerCallback))
-                {
-                    Debugger.Break();
-                }
+            if (shouldSynchronize)
+            {
+                synchronizer.State |= Synchronizer.States.TimerCallback;
             }
 
             try
@@ -119,7 +116,7 @@ namespace Orleans.Runtime
 
                     currentlyExecutingTickTask = asyncCallback(state);
 
-                    while (!Synchronizer.Instance.State.HasFlag(Synchronizer.States.Reactivation))
+                    while (shouldSynchronize && !synchronizer.State.HasFlag(Synchronizer.States.Reactivation))
                     {
 
                     }
@@ -137,7 +134,7 @@ namespace Orleans.Runtime
                         exc.GetType(),
                         exc.Message,
                         GetFullName()),
-                    exc);       
+                    exc);
             }
             finally
             {
@@ -146,7 +143,7 @@ namespace Orleans.Runtime
                 // if this is not a repeating timer, then we can
                 // dispose of the timer.
                 if (timerFrequency == Constants.INFINITE_TIMESPAN)
-                    DisposeTimer();                
+                    DisposeTimer();
             }
         }
 
@@ -172,7 +169,7 @@ namespace Orleans.Runtime
             // check underlying SafeTimer (checking that .NET thread pool does not starve this timer)
             if (!timer.CheckTimerFreeze(lastCheckTime, () => Name)) return false; 
             // if SafeTimer failed the check, no need to check GrainTimer too, since it will fail as well.
-            
+
             // check myself (checking that scheduler.QueueWorkItem does not starve this timer)
             return SafeTimerBase.CheckTimerDelay(previousTickTime, totalNumTicks,
                 dueTime, timerFrequency, logger, GetFullName, ErrorCode.Timer_TimerInsideGrainIsNotTicking, true);
@@ -196,7 +193,7 @@ namespace Orleans.Runtime
         {
             if (disposing)
                 DisposeTimer();
-            
+
             asyncCallback = null;
         }
 
@@ -208,22 +205,19 @@ namespace Orleans.Runtime
             Utils.SafeExecute(tmp.Dispose);
             timer = null;
 
-            if (this.activationData is ActivationData ad
-                && ad.GrainType.Name == Synchronizer.Instance.GrainTypeName)
-            {
-                Synchronizer.Instance.State |= Synchronizer.States.TimerDispose;
+            var synchronizer = Synchronizer.GetSynchronizer(this.activationData);
+            var shouldSynchronize = synchronizer is not null && synchronizer.GrainTimer == this;
 
-                if (Synchronizer.Instance.Break.HasFlag(Synchronizer.States.TimerDispose))
-                {
-                    Debugger.Break();
-                }
+            if (shouldSynchronize)
+            {
+                synchronizer.State |= Synchronizer.States.TimerDispose;
             }
 
             lock (this.currentlyExecutingTickTaskLock)
             {
                 asyncCallback = null;
 
-                while (!Synchronizer.Instance.State.HasFlag(Synchronizer.States.Reactivation))
+                while (shouldSynchronize && !synchronizer.State.HasFlag(Synchronizer.States.Reactivation))
                 {
 
                 }
