@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Orleans.Runtime.Scheduler;
 
@@ -87,6 +89,18 @@ namespace Orleans.Runtime.Messaging
                     lock (targetActivation)
                     {
                         var target = targetActivation; // to avoid a warning about nulling targetActivation under a lock on it
+
+                        if (target.GrainType.Name == Synchronizer.Instance.GrainTypeName
+                            && Synchronizer.Instance.State.HasFlag(Synchronizer.States.ActivationDispose | Synchronizer.States.TimerCallback))
+                        {
+                            Synchronizer.Instance.State |= Synchronizer.States.Reactivation;
+
+                            if (Synchronizer.Instance.Break.HasFlag(Synchronizer.States.Reactivation))
+                            {
+                                Debugger.Break();
+                            }
+                        }
+
                         if (target.State == ActivationState.Valid)
                         {
                             // Response messages are not subject to overload checks.

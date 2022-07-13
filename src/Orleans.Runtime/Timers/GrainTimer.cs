@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -92,9 +93,21 @@ namespace Orleans.Runtime
             // AsyncSafeTimer ensures that calls to this method are serialized.
             if (TimerAlreadyStopped) return;
 
+            if (this.activationData is ActivationData ad
+                && ad.GrainType.Name == Synchronizer.Instance.GrainTypeName)
+            {
+                Synchronizer.Instance.State |= Synchronizer.States.TimerCallback;
+
+                if (Synchronizer.Instance.Break.HasFlag(Synchronizer.States.TimerCallback))
+                {
+                    Debugger.Break();
+                }
+            }
+
             try
             {
                 RequestContext.Clear(); // Clear any previous RC, so it does not leak into this call by mistake.
+
                 lock (this.currentlyExecutingTickTaskLock)
                 {
                     if (TimerAlreadyStopped) return;
@@ -105,9 +118,15 @@ namespace Orleans.Runtime
                         logger.Trace(ErrorCode.TimerBeforeCallback, "About to make timer callback for timer {0}", GetFullName());
 
                     currentlyExecutingTickTask = asyncCallback(state);
+
+                    while (!Synchronizer.Instance.State.HasFlag(Synchronizer.States.Reactivation))
+                    {
+
+                    }
                 }
+
                 await currentlyExecutingTickTask;
-                
+
                 if (logger.IsEnabled(LogLevel.Trace)) logger.Trace(ErrorCode.TimerAfterCallback, "Completed timer callback for timer {0}", GetFullName());
             }
             catch (Exception exc)
@@ -188,11 +207,28 @@ namespace Orleans.Runtime
 
             Utils.SafeExecute(tmp.Dispose);
             timer = null;
+
+            if (this.activationData is ActivationData ad
+                && ad.GrainType.Name == Synchronizer.Instance.GrainTypeName)
+            {
+                Synchronizer.Instance.State |= Synchronizer.States.TimerDispose;
+
+                if (Synchronizer.Instance.Break.HasFlag(Synchronizer.States.TimerDispose))
+                {
+                    Debugger.Break();
+                }
+            }
+
             lock (this.currentlyExecutingTickTaskLock)
             {
                 asyncCallback = null;
+
+                while (!Synchronizer.Instance.State.HasFlag(Synchronizer.States.Reactivation))
+                {
+
+                }
             }
-            activationData?.OnTimerDisposed(this);
+            this.activationData?.OnTimerDisposed(this);
         }
     }
 }

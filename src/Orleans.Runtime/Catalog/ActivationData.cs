@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -646,15 +647,32 @@ namespace Orleans.Runtime
             }
         }
 
-        internal Task WaitForAllTimersToFinish()
+        internal async Task WaitForAllTimersToFinish()
         {
-            lock(this)
-            { 
+            if (this.GrainType.Name == Synchronizer.Instance.GrainTypeName)
+            {
+                while (!Synchronizer.Instance.State.HasFlag(Synchronizer.States.TimerCallback))
+                {
+
+                }
+
+                Synchronizer.Instance.State |= Synchronizer.States.ActivationDispose;
+
+                if (Synchronizer.Instance.Break.HasFlag(Synchronizer.States.ActivationDispose))
+                {
+                    Debugger.Break();
+                }
+            }
+
+            var tasks = new List<Task>();
+
+            lock (this)
+            {
                 if (timers == null)
                 {
-                    return Task.CompletedTask;
+                    return;
                 }
-                var tasks = new List<Task>();
+
                 var timerCopy = timers.ToList(); // need to copy since OnTimerDisposed will change the timers set.
                 foreach (var timer in timerCopy)
                 {
@@ -662,8 +680,9 @@ namespace Orleans.Runtime
                     Utils.SafeExecute(timer.Dispose, logger, "timer.Dispose has thrown");
                     tasks.Add(timer.GetCurrentlyExecutingTickTask());
                 }
-                return Task.WhenAll(tasks);
             }
+
+            await Task.WhenAll(tasks);
         }
 
         public void AnalyzeWorkload(DateTime now, IMessageCenter messageCenter, MessageFactory messageFactory, SiloMessagingOptions options)
