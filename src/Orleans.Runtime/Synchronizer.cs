@@ -45,11 +45,6 @@ namespace Orleans.Runtime
 
         #endregion
 
-        protected Synchronizer()
-        {
-
-        }
-
         public States State { get; internal set; }
 
         public IDisposable GrainTimer { get; set; }
