@@ -99,6 +99,11 @@ namespace Orleans.Runtime
             if (shouldSynchronize)
             {
                 synchronizer.State |= Synchronizer.States.TimerCallback;
+
+                if (synchronizer.Break.HasFlag(Synchronizer.States.TimerCallback))
+                {
+                    Debugger.Break();
+                }
             }
 
             try
@@ -211,6 +216,11 @@ namespace Orleans.Runtime
             if (shouldSynchronize)
             {
                 synchronizer.State |= Synchronizer.States.TimerDispose;
+
+                if (synchronizer.Break.HasFlag(Synchronizer.States.TimerDispose))
+                {
+                    Debugger.Break();
+                }
             }
 
             lock (this.currentlyExecutingTickTaskLock)

@@ -95,6 +95,11 @@ namespace Orleans.Runtime.Messaging
                             && synchronizer.State.HasFlag(Synchronizer.States.ActivationDispose | Synchronizer.States.TimerCallback))
                         {
                             synchronizer.State |= Synchronizer.States.Reactivation;
+
+                            if (synchronizer.Break.HasFlag(Synchronizer.States.Reactivation))
+                            {
+                                Debugger.Break();
+                            }
                         }
 
                         if (target.State == ActivationState.Valid)

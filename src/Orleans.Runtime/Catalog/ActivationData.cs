@@ -653,6 +653,11 @@ namespace Orleans.Runtime
 
             if (synchronizer is not null)
             {
+                if (synchronizer.Break.HasFlag(Synchronizer.States.ActivationDispose))
+                {
+                    Debugger.Break();
+                }
+
                 while (!synchronizer.State.HasFlag(Synchronizer.States.TimerCallback))
                 {
 

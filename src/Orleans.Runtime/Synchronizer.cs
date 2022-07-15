@@ -58,5 +58,7 @@ namespace Orleans.Runtime
         public States State { get; internal set; }
 
         public IDisposable GrainTimer { get; set; }
+
+        public States Break { get; set; }
     }
 }
