@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -97,6 +98,19 @@ namespace Orleans.Runtime
             // AsyncSafeTimer ensures that calls to this method are serialized.
             if (TimerAlreadyStopped) return;
 
+            var synchronizer = Synchronizer.GetSynchronizer(grainContext);
+            var shouldSynchronize = synchronizer is not null && synchronizer.GrainTimer == this;
+
+            if (shouldSynchronize)
+            {
+                synchronizer.State |= Synchronizer.States.TimerCallback;
+
+                if (synchronizer.Break.HasFlag(Synchronizer.States.TimerCallback))
+                {
+                    Debugger.Break();
+                }
+            }
+
             try
             {
                 RequestContext.Clear(); // Clear any previous RC, so it does not leak into this call by mistake.
@@ -110,6 +124,11 @@ namespace Orleans.Runtime
                         logger.Trace(ErrorCode.TimerBeforeCallback, "About to make timer callback for timer {0}", GetFullName());
 
                     currentlyExecutingTickTask = asyncCallback(state);
+
+                    while (shouldSynchronize && !synchronizer.State.HasFlag(Synchronizer.States.Reactivation))
+                    {
+
+                    }
                 }
                 await currentlyExecutingTickTask;
 
@@ -183,11 +202,29 @@ namespace Orleans.Runtime
 
             Utils.SafeExecute(tmp.Dispose);
             timer = null;
+
+            var synchronizer = Synchronizer.GetSynchronizer(grainContext);
+            var shouldSynchronize = synchronizer is not null && synchronizer.GrainTimer == this;
+
+            if (shouldSynchronize)
+            {
+                synchronizer.State |= Synchronizer.States.TimerDispose;
+
+                if (synchronizer.Break.HasFlag(Synchronizer.States.TimerDispose))
+                {
+                    Debugger.Break();
+                }
+            }
+
             lock (this.currentlyExecutingTickTaskLock)
             {
                 asyncCallback = null;
-            }
 
+                while (shouldSynchronize && !synchronizer.State.HasFlag(Synchronizer.States.Reactivation))
+                {
+
+                }
+            }
             grainContext?.GetComponent<IGrainTimerRegistry>().OnTimerDisposed(this);
         }
     }

@@ -1,6 +1,7 @@
 using GrainTimerDeadlock.Grains.Contracts;
 using Orleans;
 using Orleans.Runtime;
+using System.Reflection;
 
 namespace GrainTimerDeadlock.Grains.Implementations;
 
@@ -9,21 +10,22 @@ public class TestGrain : Grain, ITestGrain
 	public static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
 	private IDisposable _timer = null!;
 
-	private long TestGrainId { get; set; }
+	private IGrainContext GrainContext => (IGrainContext)typeof(Grain).GetProperty("GrainContext",
+		BindingFlags.Instance | BindingFlags.NonPublic)!
+		.GetValue(this)!;
 
-	public override Task OnActivateAsync()
+	public override Task OnActivateAsync(CancellationToken cancellationToken)
 	{
 		// Register timer
 		var interval = Interval;
 		_timer = RegisterTimer(TimerCallback, null, interval, interval);
 
-		TestGrainId = this.GetPrimaryKeyLong();
-		_ = Synchronizer.Synchronizers.TryAdd((typeof(TestGrain), TestGrainId), new Synchronizer
+		_ = Synchronizer.Synchronizers.TryAdd(GrainContext, new Synchronizer
 		{
 			GrainTimer = _timer
 		});
 
-		return base.OnActivateAsync();
+		return base.OnActivateAsync(cancellationToken);
 	}
 
 	public Task DeactivateOnIdleAsync()
@@ -44,7 +46,7 @@ public class TestGrain : Grain, ITestGrain
 
 	private async Task TimerCallback(object? state = null)
 	{
-		while (Synchronizer.Synchronizers.TryGetValue((typeof(TestGrain), TestGrainId), out var synchronizer)
+		while (Synchronizer.Synchronizers.TryGetValue(GrainContext, out var synchronizer)
 			&& !synchronizer.State.HasFlag(Synchronizer.States.TimerDispose))
 		{
 

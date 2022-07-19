@@ -452,6 +452,23 @@ namespace Orleans.Runtime
 
         private Task WaitForAllTimersToFinish(CancellationToken cancellationToken)
         {
+            var synchronizer = Synchronizer.GetSynchronizer(this);
+
+            if (synchronizer is not null)
+            {
+                if (synchronizer.Break.HasFlag(Synchronizer.States.ActivationDispose))
+                {
+                    Debugger.Break();
+                }
+
+                while (!synchronizer.State.HasFlag(Synchronizer.States.TimerCallback))
+                {
+
+                }
+
+                synchronizer.State |= Synchronizer.States.ActivationDispose;
+            }
+
             lock (this)
             {
                 if (Timers is null)
@@ -1037,6 +1054,19 @@ namespace Orleans.Runtime
             Message blockingMessage;
             lock (this)
             {
+                var synchronizer = Synchronizer.GetSynchronizer(this);
+
+                if (synchronizer is not null
+                    && synchronizer.State.HasFlag(Synchronizer.States.ActivationDispose | Synchronizer.States.TimerCallback))
+                {
+                    synchronizer.State |= Synchronizer.States.Reactivation;
+
+                    if (synchronizer.Break.HasFlag(Synchronizer.States.Reactivation))
+                    {
+                        Debugger.Break();
+                    }
+                }
+
                 state = State;
                 blockingMessage = _blockingRequest;
 
