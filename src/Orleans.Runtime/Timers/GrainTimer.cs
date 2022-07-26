@@ -125,7 +125,7 @@ namespace Orleans.Runtime
 
                     currentlyExecutingTickTask = asyncCallback(state);
 
-                    while (shouldSynchronize && !synchronizer.State.HasFlag(Synchronizer.States.Reactivation))
+                    while (shouldSynchronize && synchronizer.State != Synchronizer.States.None)
                     {
 
                     }
@@ -220,7 +220,7 @@ namespace Orleans.Runtime
             {
                 asyncCallback = null;
 
-                while (shouldSynchronize && !synchronizer.State.HasFlag(Synchronizer.States.Reactivation))
+                while (shouldSynchronize && synchronizer.State != Synchronizer.States.None)
                 {
 
                 }

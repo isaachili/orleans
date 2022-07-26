@@ -9,10 +9,10 @@ namespace Orleans.Runtime
         [Flags]
         public enum States
         {
+            None = 0,
             TimerCallback = 1,
             TimerDispose = 2,
-            ActivationDispose = 4,
-            Reactivation = 8
+            ActivationDispose = 4
         }
 
         #region Synchronizers

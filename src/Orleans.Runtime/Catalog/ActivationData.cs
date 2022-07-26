@@ -1050,21 +1050,20 @@ namespace Orleans.Runtime
                 return;
             }
 
+            var synchronizer = Synchronizer.GetSynchronizer(this);
+
+            if (synchronizer is not null)
+            {
+                Thread.Sleep(1000);
+            }
+
             ActivationState state;
             Message blockingMessage;
             lock (this)
             {
-                var synchronizer = Synchronizer.GetSynchronizer(this);
-
-                if (synchronizer is not null
-                    && synchronizer.State.HasFlag(Synchronizer.States.ActivationDispose | Synchronizer.States.TimerCallback))
+                if (synchronizer is not null)
                 {
-                    synchronizer.State |= Synchronizer.States.Reactivation;
-
-                    if (synchronizer.Break.HasFlag(Synchronizer.States.Reactivation))
-                    {
-                        Debugger.Break();
-                    }
+                    synchronizer.State = Synchronizer.States.None;
                 }
 
                 state = State;
