@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 
 namespace Orleans.Runtime
 {
@@ -9,10 +8,10 @@ namespace Orleans.Runtime
         [Flags]
         public enum States
         {
+            None = 0,
             TimerCallback = 1,
             TimerDispose = 2,
-            ActivationDispose = 4,
-            Reactivation = 8
+            ActivationDispose = 4
         }
 
         #region Synchronizers
@@ -55,7 +54,7 @@ namespace Orleans.Runtime
 
         #endregion
 
-        public States State { get; internal set; }
+        public States State { get; internal set; } = States.None;
 
         public IDisposable GrainTimer { get; set; }
 

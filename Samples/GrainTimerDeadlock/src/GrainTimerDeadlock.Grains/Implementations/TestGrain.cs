@@ -44,8 +44,20 @@ public class TestGrain : Grain, ITestGrain
 
 	private async Task TimerCallback(object? state = null)
 	{
+		static bool IsDeactivationPending(Synchronizer synchronizer)
+		{
+			return !synchronizer.State.HasFlag(Synchronizer.States.ActivationDispose)
+				&& !synchronizer.State.HasFlag(Synchronizer.States.TimerDispose);
+		}
+
+		static bool IsTimerDisposed(Synchronizer synchronizer)
+		{
+			return synchronizer.State.HasFlag(Synchronizer.States.ActivationDispose)
+				&& synchronizer.State.HasFlag(Synchronizer.States.TimerDispose);
+		}
+
 		while (Synchronizer.Synchronizers.TryGetValue((typeof(TestGrain), TestGrainId), out var synchronizer)
-			&& !synchronizer.State.HasFlag(Synchronizer.States.TimerDispose))
+			&& !(IsDeactivationPending(synchronizer) || IsTimerDisposed(synchronizer)))
 		{
 
 		}

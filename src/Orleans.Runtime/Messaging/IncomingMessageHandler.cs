@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Orleans.Runtime.Scheduler;
@@ -84,22 +85,23 @@ namespace Orleans.Runtime.Messaging
             {
                 // Run this code on the target activation's context, if it already exists
                 ActivationData targetActivation = this.directory.FindTarget(msg.TargetActivation);
+
                 if (targetActivation != null)
                 {
+                    var synchronizer = Synchronizer.GetSynchronizer(targetActivation);
+
+                    if (synchronizer is not null)
+                    {
+                        Thread.Sleep(1000);
+                    }
+
                     lock (targetActivation)
                     {
                         var target = targetActivation; // to avoid a warning about nulling targetActivation under a lock on it
-                        var synchronizer = Synchronizer.GetSynchronizer(target);
 
-                        if (synchronizer is not null
-                            && synchronizer.State.HasFlag(Synchronizer.States.ActivationDispose | Synchronizer.States.TimerCallback))
+                        if (synchronizer is not null)
                         {
-                            synchronizer.State |= Synchronizer.States.Reactivation;
-
-                            if (synchronizer.Break.HasFlag(Synchronizer.States.Reactivation))
-                            {
-                                Debugger.Break();
-                            }
+                            synchronizer.State = Synchronizer.States.None;
                         }
 
                         if (target.State == ActivationState.Valid)
